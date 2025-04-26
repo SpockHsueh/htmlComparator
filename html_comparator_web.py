@@ -2,6 +2,7 @@ import streamlit as st
 from bs4 import BeautifulSoup
 import io
 import json
+import pyperclip
 
 class HTMLComparator:
     def __init__(self):
@@ -573,6 +574,18 @@ def toggle_confirm_issue(test_id, index):
     else:
         st.session_state.confirmed_issues[test_id].add(index)
 
+def copy_to_clipboard(test_id):
+    try:
+        pyperclip.copy(test_id)
+        st.session_state.last_copied = test_id
+        # 设置一个标志来显示复制成功消息
+        st.session_state[f"copied_{test_id}"] = True
+        return True
+    except Exception as e:
+        st.error(f"複製失敗: {str(e)}")
+        return False
+
+
 # 应用标题和描述
 st.title("HTML 比對工具")
 st.markdown("""
@@ -753,8 +766,16 @@ with col2:
                 confirmed_in_test = len(st.session_state.confirmed_issues.get(test_id, set()))
                 total_in_test = len(diffs)
                 
-                # 测试标题
-                st.markdown(f'<div class="test-header">測試 {test_id} ({confirmed_in_test}/{total_in_test})</div>', unsafe_allow_html=True)
+                # 创建行布局，左侧为测试标题，右侧为复制按钮
+                col_title, col_copy = st.columns([9, 1])
+                
+                with col_title:
+                    st.markdown(f"### 測試 {test_id} ({confirmed_in_test}/{total_in_test})")
+                
+                with col_copy:
+                    # 添加复制按钮
+                    if st.button("複製ID", key=f"copy_btn_{test_id}"):
+                        copy_to_clipboard(test_id)                                
                 
                 # 显示该测试的所有差异
                 for i, diff in enumerate(diffs):
