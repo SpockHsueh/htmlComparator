@@ -319,10 +319,10 @@ class HTMLComparator:
         target_sections = self.find_all_test_sections(target_soup)
         
         if not sample_sections:
-            return ["錯誤：在樣本檔案中找不到任何測試段落"], False
+            return ["錯誤：在Golden 文件中找不到任何測試段落"], False
         
         if not target_sections:
-            return ["錯誤：在目標檔案中找不到任何測試段落"], False
+            return ["錯誤：在待測文件中找不到任何測試段落"], False
         
         # 將測試段落轉換為字典，以便按名稱查找
         sample_sections_dict = {section['name']: section for section in sample_sections}
@@ -339,10 +339,10 @@ class HTMLComparator:
         # 如果指定了特定測試ID，則只比對該測試
         if specific_test_id:
             if specific_test_id not in sample_sections_dict:
-                return [f"錯誤：在樣本檔案中找不到測試ID '{specific_test_id}'"], False
+                return [f"錯誤：在Golden 文件中找不到測試ID '{specific_test_id}'"], False
             
             if specific_test_id not in target_sections_dict:
-                return [f"錯誤：在目標檔案中找不到測試ID '{specific_test_id}'"], False
+                return [f"錯誤：在待中找不到測試ID '{specific_test_id}'"], False
             
             test_ids_to_compare = [specific_test_id]
         else:
@@ -360,14 +360,14 @@ class HTMLComparator:
             in_sample = test_id in sample_sections_dict
             in_target = test_id in target_sections_dict
             
-            # 如果測試ID只在目標檔案中存在，標記為差異
+            # 如果測試ID只在待測試中存在，標記為差異
             if not in_sample and in_target:
-                current_test_diffs.append(f"測試 {test_id} 僅存在於目標檔案中，樣本檔案中找不到對應測試")
+                current_test_diffs.append(f"測試 {test_id} 僅存在於待測文件中，Golden 文件中找不到對應測試")
                 problem_count += 1
             
-            # 如果測試ID只在樣本檔案中存在，標記為差異
+            # 如果測試ID只在Golden 文件中存在，標記為差異
             elif in_sample and not in_target:
-                current_test_diffs.append(f"測試 {test_id} 僅存在於樣本檔案中，目標檔案中找不到對應測試")
+                current_test_diffs.append(f"測試 {test_id} 僅存在於Golden 文件中，待測文件中找不到對應測試")
                 problem_count += 1
             
             else:
@@ -406,7 +406,7 @@ class HTMLComparator:
                     target_html = "無法獲取HTML內容"
                 
                 if not sample_details:
-                    error_message = f"錯誤：無法從樣本檔案中提取測試 {test_id} 的細節"
+                    error_message = f"錯誤：無法從Golden 文件中提取測試 {test_id} 的細節"
                     if sample_error:
                         error_message += f"，原因：{sample_error}"
                     current_test_diffs.append(error_message)
@@ -417,7 +417,7 @@ class HTMLComparator:
                     continue
                 
                 if not target_details:
-                    error_message = f"錯誤：無法從目標檔案中提取測試 {test_id} 的細節"
+                    error_message = f"錯誤：無法從待測文件中提取測試 {test_id} 的細節"
                     if target_error:
                         error_message += f"，原因：{target_error}"
                     current_test_diffs.append(error_message)
@@ -453,19 +453,34 @@ class HTMLComparator:
         
         # 計算概要信息
         if test_ids_to_compare:
+            # 计算各类测试ID
+            only_in_sample = [tid for tid in test_ids_to_compare if tid in sample_sections_dict and tid not in target_sections_dict]
+            only_in_target = [tid for tid in test_ids_to_compare if tid not in sample_sections_dict and tid in target_sections_dict]
+
+            # 计算统计信息
             total_tests = len(test_ids_to_compare)
-            only_in_sample = sum(1 for tid in test_ids_to_compare if tid in sample_sections_dict and tid not in target_sections_dict)
-            only_in_target = sum(1 for tid in test_ids_to_compare if tid not in sample_sections_dict and tid in target_sections_dict)
-            common_tests = total_tests - only_in_sample - only_in_target
+            only_in_sample_count = len(only_in_sample)
+            only_in_target_count = len(only_in_target)
+            common_tests = total_tests - only_in_sample_count - only_in_target_count
+
+            # 獲取有差異的測試 ID 列表
+            diff_test_ids = [tid for tid in test_differences.keys() 
+                            if tid in sample_sections_dict and tid in target_sections_dict]
             
+            # 完全匹配的測試ID
+            match_test_ids = [tid for tid in test_ids_to_compare 
+                if tid in sample_sections_dict and tid in target_sections_dict 
+                and tid not in diff_test_ids]
+
+            # 生成摘要
             summary_lines = []
             summary_lines.append(f"找到總共 {total_tests} 個測試段落：")
-            if only_in_sample > 0:
-                summary_lines.append(f"{only_in_sample} 個僅在樣本檔案中")
-            if only_in_target > 0:
-                summary_lines.append(f"{only_in_target} 個僅在目標檔案中")
-            summary_lines.append(f"{common_tests} 個共同測試段落中 {match_count} 個完全匹配，{common_tests - match_count} 個有差異")
-            
+            if only_in_sample_count > 0:
+                summary_lines.append(f"{only_in_sample_count} 個僅在Golden 文件中")
+            if only_in_target_count > 0:
+                summary_lines.append(f"{only_in_target_count} 個僅在待測文件中")
+            summary_lines.append(f"{common_tests} 個共同測試段落中 {len(match_test_ids)} 個完全匹配，{common_tests - len(match_test_ids)} 個有差異")
+
             summary = "\n".join(summary_lines)
 
             
@@ -662,7 +677,7 @@ with col1:
     
     # 文件上傳
     sample_file = st.file_uploader("上傳 Golden 文件", type=["html"], key="sample")
-    target_file = st.file_uploader("上傳待比對文件", type=["html"], key="target")    
+    target_file = st.file_uploader("上傳待測文件", type=["html"], key="target")    
     
     # 比對模式
     compare_mode = st.radio(
@@ -718,7 +733,7 @@ with col1:
                     st.write(f"僅在待測文件中: {len(comp['only_in_target'])} 個")
                     st.write(", ".join(comp['only_in_target'][:10]) + ("..." if len(comp['only_in_target']) > 10 else ""))
                 if comp['only_in_sample']:
-                    st.write(f"僅在Golden 文件中: {len(comp['only_in_sample'])} 個")
+                    st.write(f"僅在 Golden 文件中: {len(comp['only_in_sample'])} 個")
                     st.write(", ".join(comp['only_in_sample'][:10]) + ("..." if len(comp['only_in_sample']) > 10 else ""))
         
         # 測試 ID 下拉列表或輸入框
@@ -740,7 +755,7 @@ with col1:
     # 比對按鈕
     if st.button("比對檔案"):
         if not sample_file or not target_file:
-            st.error("請上傳樣本檔案和目標檔案")
+            st.error("請上傳 Golden 文件和待測文件")
         elif compare_mode == "比對單一測試" and not test_id:
             st.error("請選擇或輸入測試ID")
         else:
@@ -818,7 +833,7 @@ with col2:
                 
                 st.markdown(f"""
                 <div class="diff-test-ids" style="summary-bar: #eeffee; border-color: #aaffaa;">
-                    <h4>Golden 文件 - 完全匹配的測試 ({match_ids_count} 個)：</h4>
+                    <h4>完全匹配的測試 ({match_ids_count} 個)：</h4>
                     <p>{match_ids_html}</p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -930,7 +945,7 @@ st.markdown("""
 ---
 ### 使用說明
 
-1. 上傳Golden 文件（標準參考HTML檔案）
+1. 上傳 Golden 文件（標準參考HTML檔案）
 2. 上傳待測文件（需要比對的HTML檔案）
 3. 選擇比對模式:
    - **比對單一測試**: 選擇或輸入測試ID，只比對該特定測試段落
