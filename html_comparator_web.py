@@ -458,14 +458,24 @@ class HTMLComparator:
             only_in_target = sum(1 for tid in test_ids_to_compare if tid not in sample_sections_dict and tid in target_sections_dict)
             common_tests = total_tests - only_in_sample - only_in_target
             
-            summary = f"找到總共 {total_tests} 個測試段落："
+            summary_lines = []
+            summary_lines.append(f"找到總共 {total_tests} 個測試段落：")
             if only_in_sample > 0:
-                summary += f"{only_in_sample} 個僅在樣本檔案中，"
+                summary_lines.append(f"{only_in_sample} 個僅在樣本檔案中")
             if only_in_target > 0:
-                summary += f"{only_in_target} 個僅在目標檔案中，"
-            summary += f"{common_tests} 個共同測試段落中 {match_count} 個完全匹配，{common_tests - match_count} 個有差異"
+                summary_lines.append(f"{only_in_target} 個僅在目標檔案中")
+            summary_lines.append(f"{common_tests} 個共同測試段落中 {match_count} 個完全匹配，{common_tests - match_count} 個有差異")
+            
+            summary = "\n".join(summary_lines)
+
+            
+            # 獲取有差異的測試 ID 列表
+            diff_test_ids = [tid for tid in test_differences.keys() 
+                            if tid in sample_sections_dict and tid in target_sections_dict 
+                            and len(test_differences[tid]) > 1]  # 至少有兩個差異項的被認為是有真正差異的
         else:
             summary = "沒有找到可比對的測試段落"
+            diff_test_ids = []
         
         # 返回結果
         if specific_test_id:
@@ -476,8 +486,8 @@ class HTMLComparator:
             # 多個測試的總體匹配情況
             is_all_match = problem_count == 0
             
-            # 返回差異字典和概要
-            return all_differences, is_all_match, test_differences, summary
+            # 返回差異字典、概要和有差異的測試ID列表
+            return all_differences, is_all_match, test_differences, summary, diff_test_ids
 
 # 初始化 session state (保持您現有的代碼)
 if 'test_id_list' not in st.session_state:
@@ -737,15 +747,15 @@ with col1:
                         'summary': summary
                     }
                 else:
-                    differences, is_all_match, test_differences, summary = comparator.compare_html_files(
-                        sample_file, target_file
-                    )
+                    differences, is_all_match, test_differences, summary, diff_test_ids = comparator.compare_html_files(
+                        sample_file, target_file)
                     st.session_state.comparison_results = {
                         'mode': 'all',
                         'differences': differences,
                         'is_all_match': is_all_match,
                         'test_differences': test_differences,
-                        'summary': summary
+                        'summary': summary,
+                        'diff_test_ids': diff_test_ids
                     }
 
 
@@ -779,6 +789,22 @@ with col2:
             
             # 顯示摘要
             st.info(results['summary'])
+
+            # 顯示有差異的測試ID列表
+            if 'diff_test_ids' in results and results['diff_test_ids']:
+                diff_ids = results['diff_test_ids']
+                diff_ids_count = len(diff_ids)
+                
+                # 將每個ID單獨一行顯示
+                diff_ids_html = "<br>".join(diff_ids)
+                
+                st.markdown(f"""
+                <div class="diff-test-ids">
+                    <h4>有差異的測試 ({diff_ids_count} 個)：</h4>
+                    <p>{diff_ids_html}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
             
             # 計算確認進度
             total_issues = sum(len(diffs) for diffs in results['test_differences'].values())
