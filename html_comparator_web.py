@@ -471,8 +471,15 @@ class HTMLComparator:
             
             # 獲取有差異的測試 ID 列表
             diff_test_ids = [tid for tid in test_differences.keys() 
-                            if tid in sample_sections_dict and tid in target_sections_dict 
-                            and len(test_differences[tid]) > 1]  # 至少有兩個差異項的被認為是有真正差異的
+                            if tid in sample_sections_dict and tid in target_sections_dict]  # 至少有兩個差異項的被認為是有真正差異的
+            
+            match_test_ids = [tid for tid in test_ids_to_compare 
+                  if tid in sample_sections_dict and tid in target_sections_dict 
+                  and tid not in diff_test_ids]  # 完全匹配的測試ID
+            
+            only_in_target = [tid for tid in test_ids_to_compare if tid not in sample_sections_dict and tid in target_sections_dict]
+
+
         else:
             summary = "沒有找到可比對的測試段落"
             diff_test_ids = []
@@ -487,7 +494,8 @@ class HTMLComparator:
             is_all_match = problem_count == 0
             
             # 返回差異字典、概要和有差異的測試ID列表
-            return all_differences, is_all_match, test_differences, summary, diff_test_ids
+        return all_differences, is_all_match, test_differences, summary, diff_test_ids, match_test_ids, only_in_target
+
 
 # 初始化 session state (保持您現有的代碼)
 if 'test_id_list' not in st.session_state:
@@ -562,6 +570,13 @@ st.markdown("""
         font-family: monospace;
         white-space: pre-wrap;
         overflow-x: auto;
+    }
+
+    .diff-test-ids {
+        margin: 15px 0;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #dee2e6;
     }
 
     .test-header {
@@ -646,8 +661,8 @@ with col1:
     st.header("上傳檔案")
     
     # 文件上傳
-    sample_file = st.file_uploader("上傳樣本文件", type=["html"], key="sample")
-    target_file = st.file_uploader("上傳目標文件", type=["html"], key="target")    
+    sample_file = st.file_uploader("上傳 Golden 文件", type=["html"], key="sample")
+    target_file = st.file_uploader("上傳待比對文件", type=["html"], key="target")    
     
     # 比對模式
     compare_mode = st.radio(
@@ -747,16 +762,19 @@ with col1:
                         'summary': summary
                     }
                 else:
-                    differences, is_all_match, test_differences, summary, diff_test_ids = comparator.compare_html_files(
-                        sample_file, target_file)
-                    st.session_state.comparison_results = {
-                        'mode': 'all',
-                        'differences': differences,
-                        'is_all_match': is_all_match,
-                        'test_differences': test_differences,
-                        'summary': summary,
-                        'diff_test_ids': diff_test_ids
-                    }
+                    differences, is_all_match, test_differences, summary, diff_test_ids, match_test_ids, only_in_target = comparator.compare_html_files(
+                    sample_file, target_file
+                )
+                st.session_state.comparison_results = {
+                    'mode': 'all',
+                    'differences': differences,
+                    'is_all_match': is_all_match,
+                    'test_differences': test_differences,
+                    'summary': summary,
+                    'diff_test_ids': diff_test_ids,
+                    'match_test_ids': match_test_ids,
+                    'only_in_target': only_in_target
+                }
 
 
 # 結果顯示區域
@@ -790,6 +808,21 @@ with col2:
             # 顯示摘要
             st.info(results['summary'])
 
+            # 顯示完全匹配的測試ID列表
+            if 'match_test_ids' in results and results['match_test_ids']:
+                match_ids = results['match_test_ids']
+                match_ids_count = len(match_ids)
+                
+                # 將每個ID單獨一行顯示
+                match_ids_html = "<br>".join(match_ids)
+                
+                st.markdown(f"""
+                <div class="diff-test-ids" style="summary-bar: #eeffee; border-color: #aaffaa;">
+                    <h4>樣本文件 - 完全匹配的測試 ({match_ids_count} 個)：</h4>
+                    <p>{match_ids_html}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
             # 顯示有差異的測試ID列表
             if 'diff_test_ids' in results and results['diff_test_ids']:
                 diff_ids = results['diff_test_ids']
@@ -799,12 +832,25 @@ with col2:
                 diff_ids_html = "<br>".join(diff_ids)
                 
                 st.markdown(f"""
-                <div class="diff-test-ids">
-                    <h4>有差異的測試 ({diff_ids_count} 個)：</h4>
+                <div class="diff-test-ids" style="summary-bar: #ffeeee; border-color: #ffaaaa;">
+                    <h4>目標文件 - 有差異的測試 ({diff_ids_count} 個)：</h4>
                     <p>{diff_ids_html}</p>
                 </div>
                 """, unsafe_allow_html=True)
 
+            if 'only_in_target' in results and results['only_in_target']:
+                only_in_target_ids = results['only_in_target']
+                only_in_target_count = len(only_in_target_ids)
+                
+                # 將每個ID單獨一行顯示
+                only_in_target_html = "<br>".join(only_in_target_ids)
+                
+                st.markdown(f"""
+                <div class="diff-test-ids" style="summary-bar: #ffffee; border-color: #ffffaa;">
+                    <h4>僅在目標文件中的測試 ({only_in_target_count} 個)：</h4>
+                    <p>{only_in_target_html}</p>
+                </div>
+                """, unsafe_allow_html=True)        
             
             # 計算確認進度
             total_issues = sum(len(diffs) for diffs in results['test_differences'].values())
