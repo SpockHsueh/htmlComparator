@@ -231,7 +231,7 @@ class HTMLComparator:
             
             # 特別標記非Pass的項目
             if target_details.get('result') != "Pass":
-                differences.append(f"注意：目標文件的測試 {test_name} 主測試結果不是 Pass，而是 {target_details.get('result')}")
+                differences.append(f"注意：待測文件的測試 {test_name} 主測試結果不是 Pass，而是 {target_details.get('result')}")
         
         # 檢查迭代信息
         sample_iterations = sample_details.get('iterations', [])
@@ -266,7 +266,7 @@ class HTMLComparator:
                 
                 # 特別標記非Pass的項目  
                 if t_iter.get('result') != "Pass":
-                    differences.append(f"注意：目標文件的測試 {test_name} 迭代 {iter_num} 結果不是 Pass，而是 {t_iter.get('result')}")
+                    differences.append(f"注意：待測文件的測試 {test_name} 迭代 {iter_num} 結果不是 Pass，而是 {t_iter.get('result')}")
             
             # 檢查區塊內核心屬性是否一致，才進一步比對子測試
             core_attributes_match = (
@@ -299,7 +299,7 @@ class HTMLComparator:
                         
                         # 特別標記非Pass的項目
                         if t_test.get('result') != "Pass":
-                            differences.append(f"注意：目標文件的測試 {test_name} 迭代 {iter_num} 子測試 {subtest_num} 結果不是 Pass，而是 {t_test.get('result')}")
+                            differences.append(f"注意：待測文件的測試 {test_name} 迭代 {iter_num} 子測試 {subtest_num} 結果不是 Pass，而是 {t_test.get('result')}")
             else:
                 differences.append(f"測試 {test_name} 迭代 {iter_num} 核心屬性不同，跳過子測試比對")
         
@@ -680,7 +680,7 @@ with col1:
                 # 創建比對器
                 comparator = HTMLComparator()
                 
-                # 載入樣本文件
+                # 載入Golden 文件
                 sample_soup = comparator.load_html(sample_file)
                 sample_ids = []
                 if not isinstance(sample_soup, str):
@@ -688,7 +688,7 @@ with col1:
                     sample_ids = [section['name'] for section in sample_sections]
                     sample_ids.sort()
                 
-                # 載入目標文件
+                # 載入待測文件
                 target_soup = comparator.load_html(target_file)
                 target_ids = []
                 if not isinstance(target_soup, str):
@@ -715,10 +715,10 @@ with col1:
                 comp = st.session_state.test_id_comparison
                 st.write(f"共同測試ID: {len(comp['common'])} 個")
                 if comp['only_in_target']:
-                    st.write(f"僅在目標文件中: {len(comp['only_in_target'])} 個")
+                    st.write(f"僅在待測文件中: {len(comp['only_in_target'])} 個")
                     st.write(", ".join(comp['only_in_target'][:10]) + ("..." if len(comp['only_in_target']) > 10 else ""))
                 if comp['only_in_sample']:
-                    st.write(f"僅在樣本文件中: {len(comp['only_in_sample'])} 個")
+                    st.write(f"僅在Golden 文件中: {len(comp['only_in_sample'])} 個")
                     st.write(", ".join(comp['only_in_sample'][:10]) + ("..." if len(comp['only_in_sample']) > 10 else ""))
         
         # 測試 ID 下拉列表或輸入框
@@ -726,7 +726,7 @@ with col1:
             target_ids = st.session_state.test_id_comparison['all_target']
             if target_ids:
                 test_id = st.selectbox(
-                    "選擇測試ID (來自目標文件)",
+                    "選擇測試ID (來自待測文件)",
                     options=target_ids,
                     index=0
                 )
@@ -818,7 +818,7 @@ with col2:
                 
                 st.markdown(f"""
                 <div class="diff-test-ids" style="summary-bar: #eeffee; border-color: #aaffaa;">
-                    <h4>樣本文件 - 完全匹配的測試 ({match_ids_count} 個)：</h4>
+                    <h4>Golden 文件 - 完全匹配的測試 ({match_ids_count} 個)：</h4>
                     <p>{match_ids_html}</p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -833,7 +833,7 @@ with col2:
                 
                 st.markdown(f"""
                 <div class="diff-test-ids" style="summary-bar: #ffeeee; border-color: #ffaaaa;">
-                    <h4>目標文件 - 有差異的測試 ({diff_ids_count} 個)：</h4>
+                    <h4>待測文件 - 有差異的測試 ({diff_ids_count} 個)：</h4>
                     <p>{diff_ids_html}</p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -847,7 +847,7 @@ with col2:
                 
                 st.markdown(f"""
                 <div class="diff-test-ids" style="summary-bar: #ffffee; border-color: #ffffaa;">
-                    <h4>僅在目標文件中的測試 ({only_in_target_count} 個)：</h4>
+                    <h4>僅在待測文件中的測試 ({only_in_target_count} 個)：</h4>
                     <p>{only_in_target_html}</p>
                 </div>
                 """, unsafe_allow_html=True)        
@@ -930,8 +930,8 @@ st.markdown("""
 ---
 ### 使用說明
 
-1. 上傳樣本文件（標準參考HTML檔案）
-2. 上傳目標文件（需要比對的HTML檔案）
+1. 上傳Golden 文件（標準參考HTML檔案）
+2. 上傳待測文件（需要比對的HTML檔案）
 3. 選擇比對模式:
    - **比對單一測試**: 選擇或輸入測試ID，只比對該特定測試段落
    - **比對所有測試**: 比對兩個檔案中所有共同的測試段落
@@ -939,19 +939,13 @@ st.markdown("""
 5. 在比對結果中，您可以:
    - 勾選差異左側的方框表示已確認
    - 已確認的差異會顯示刪除線
-
-### 比對規則
-
-工具會按照以下規則進行比對：
-
-1. 每個比對區塊由 `<p><br><a name=...` 開始，直到下一個類似的標記
-2. 比對同名測試段落的結構，檢查表格是否一致
-3. 確認測試標題是否相同，以判斷是否為同一組數據
-4. 比對除 name、ctsub 和 note 以外的屬性是否一致
-5. 只有核心屬性一致時，才進一步比對 subtitle 部分
-6. 檢查主測試結果是否為 `Pass`，如果目標文件不是 `Pass` 會特別標註
-7. 檢查每個迭代中的所有子測試項目的描述和結果是否一致，並特別標註非 `Pass` 的項目
 """, unsafe_allow_html=True)
 
 # 頁面底部的最後一個廣告
 display_adsense_ad(ad_slot="8901234567")
+
+st.markdown("""
+<div style="text-align: center; padding: 20px; margin-top: 20px; color: #666;">
+    <strong>Made with ❤️ by Spock</strong>
+</div>
+""", unsafe_allow_html=True)
