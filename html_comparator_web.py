@@ -1,6 +1,7 @@
 import streamlit as st
 from bs4 import BeautifulSoup
 import io
+import json
 
 class HTMLComparator:
     def __init__(self):
@@ -330,6 +331,9 @@ class HTMLComparator:
         match_count = 0
         problem_count = 0
         
+        # 所有測試的差異結果
+        test_differences = {}
+        
         # 如果指定了特定測試ID，則只比對該測試
         if specific_test_id:
             if specific_test_id not in sample_sections_dict:
@@ -347,126 +351,131 @@ class HTMLComparator:
         
         # 比對每個測試段落
         for test_id in test_ids_to_compare:
+            # 存儲當前測試的差異
+            current_test_diffs = []
+            
             # 檢查測試ID是否在兩個檔案中都存在
             in_sample = test_id in sample_sections_dict
             in_target = test_id in target_sections_dict
             
             # 如果測試ID只在目標檔案中存在，標記為差異
             if not in_sample and in_target:
-                all_differences.append(f"測試 {test_id} 僅存在於目標檔案中，樣本檔案中找不到對應測試")
+                current_test_diffs.append(f"測試 {test_id} 僅存在於目標檔案中，樣本檔案中找不到對應測試")
                 problem_count += 1
-                continue
             
             # 如果測試ID只在樣本檔案中存在，標記為差異
-            if in_sample and not in_target:
-                all_differences.append(f"測試 {test_id} 僅存在於樣本檔案中，目標檔案中找不到對應測試")
+            elif in_sample and not in_target:
+                current_test_diffs.append(f"測試 {test_id} 僅存在於樣本檔案中，目標檔案中找不到對應測試")
                 problem_count += 1
-                continue
             
-            # 獲取測試段落
-            sample_section = sample_sections_dict[test_id]
-            target_section = target_sections_dict[test_id]
-            
-            # 比較表格結構
-            structure_differences = self.compare_structure(
-                sample_section['table'], 
-                target_section['table'],
-                test_id
-            )
-            
-            if structure_differences:
-                all_differences.append(f"測試 {test_id} 表格結構不同:")
-                for diff in structure_differences:
-                    all_differences.append(f"  - {diff}")
-                problem_count += 1
-                continue
-            
-            # 提取測試細節
-            sample_result = self.extract_test_details(sample_section['table'], test_id)
-            target_result = self.extract_test_details(target_section['table'], test_id)
-            
-            if len(sample_result) == 3:
-                sample_details, sample_error, sample_html = sample_result
             else:
-                sample_details, sample_error = sample_result
-                sample_html = "無法獲取HTML內容"
+                # 獲取測試段落
+                sample_section = sample_sections_dict[test_id]
+                target_section = target_sections_dict[test_id]
+                
+                # 比較表格結構
+                structure_differences = self.compare_structure(
+                    sample_section['table'], 
+                    target_section['table'],
+                    test_id
+                )
+                
+                if structure_differences:
+                    current_test_diffs.append(f"測試 {test_id} 表格結構不同:")
+                    for diff in structure_differences:
+                        current_test_diffs.append(f"  - {diff}")
+                    problem_count += 1
+                    continue
+                
+                # 提取測試細節
+                sample_result = self.extract_test_details(sample_section['table'], test_id)
+                target_result = self.extract_test_details(target_section['table'], test_id)
+                
+                if len(sample_result) == 3:
+                    sample_details, sample_error, sample_html = sample_result
+                else:
+                    sample_details, sample_error = sample_result
+                    sample_html = "無法獲取HTML內容"
+                
+                if len(target_result) == 3:
+                    target_details, target_error, target_html = target_result
+                else:
+                    target_details, target_error = target_result
+                    target_html = "無法獲取HTML內容"
+                
+                if not sample_details:
+                    error_message = f"錯誤：無法從樣本檔案中提取測試 {test_id} 的細節"
+                    if sample_error:
+                        error_message += f"，原因：{sample_error}"
+                    current_test_diffs.append(error_message)
+                    # 添加HTML內容到差異列表
+                    current_test_diffs.append(f"問題區塊的HTML內容:")
+                    current_test_diffs.append(f"```html\n{sample_html}\n```")
+                    problem_count += 1
+                    continue
+                
+                if not target_details:
+                    error_message = f"錯誤：無法從目標檔案中提取測試 {test_id} 的細節"
+                    if target_error:
+                        error_message += f"，原因：{target_error}"
+                    current_test_diffs.append(error_message)
+                    # 添加HTML內容到差異列表
+                    current_test_diffs.append(f"問題區塊的HTML內容:")
+                    current_test_diffs.append(f"```html\n{target_html}\n```")
+                    problem_count += 1
+                    continue
+                
+                # 檢查測試標題是否相同
+                if sample_details.get('title') != target_details.get('title'):
+                    current_test_diffs.append(f"測試 {test_id} 標題不同：\n樣本：{sample_details.get('title')}\n目標：{target_details.get('title')}")
+                    problem_count += 1
+                    continue
+                
+                # 比較測試細節
+                differences = self.compare_tests(sample_details, target_details, test_id)
+                
+                if differences:
+                    current_test_diffs.append(f"測試 {test_id} 有以下差異:")
+                    for diff in differences:
+                        current_test_diffs.append(f"  - {diff}")
+                    problem_count += 1
+                else:
+                    match_count += 1
+                    if specific_test_id:
+                        current_test_diffs.append(f"測試 {test_id} 完全匹配")
             
-            if len(target_result) == 3:
-                target_details, target_error, target_html = target_result
-            else:
-                target_details, target_error = target_result
-                target_html = "無法獲取HTML內容"
+            # 將當前測試的差異添加到總差異中
+            if current_test_diffs:
+                test_differences[test_id] = current_test_diffs
+                all_differences.extend(current_test_diffs)
+        
+        # 計算概要信息
+        if test_ids_to_compare:
+            total_tests = len(test_ids_to_compare)
+            only_in_sample = sum(1 for tid in test_ids_to_compare if tid in sample_sections_dict and tid not in target_sections_dict)
+            only_in_target = sum(1 for tid in test_ids_to_compare if tid not in sample_sections_dict and tid in target_sections_dict)
+            common_tests = total_tests - only_in_sample - only_in_target
             
-            if not sample_details:
-                error_message = f"錯誤：無法從樣本檔案中提取測試 {test_id} 的細節"
-                if sample_error:
-                    error_message += f"，原因：{sample_error}"
-                all_differences.append(error_message)
-                # 添加HTML內容到差異列表
-                all_differences.append(f"問題區塊的HTML內容:")
-                all_differences.append(f"```html\n{sample_html}\n```")
-                problem_count += 1
-                continue
-            
-            if not target_details:
-                error_message = f"錯誤：無法從目標檔案中提取測試 {test_id} 的細節"
-                if target_error:
-                    error_message += f"，原因：{target_error}"
-                all_differences.append(error_message)
-                # 添加HTML內容到差異列表
-                all_differences.append(f"問題區塊的HTML內容:")
-                all_differences.append(f"```html\n{target_html}\n```")
-                problem_count += 1
-                continue
-            
-            # 檢查測試標題是否相同
-            if sample_details.get('title') != target_details.get('title'):
-                all_differences.append(f"測試 {test_id} 標題不同：\n樣本：{sample_details.get('title')}\n目標：{target_details.get('title')}")
-                problem_count += 1
-                continue
-            
-            # 比較測試細節
-            differences = self.compare_tests(sample_details, target_details, test_id)
-            
-            if differences:
-                all_differences.append(f"測試 {test_id} 有以下差異:")
-                for diff in differences:
-                    all_differences.append(f"  - {diff}")
-                problem_count += 1
-            else:
-                match_count += 1
-                if specific_test_id:
-                    all_differences.append(f"測試 {test_id} 完全匹配")
+            summary = f"找到總共 {total_tests} 個測試段落："
+            if only_in_sample > 0:
+                summary += f"{only_in_sample} 個僅在樣本檔案中，"
+            if only_in_target > 0:
+                summary += f"{only_in_target} 個僅在目標檔案中，"
+            summary += f"{common_tests} 個共同測試段落中 {match_count} 個完全匹配，{common_tests - match_count} 個有差異"
+        else:
+            summary = "沒有找到可比對的測試段落"
         
         # 返回結果
         if specific_test_id:
             # 單個測試匹配情況
             is_match = not problem_count
-            return all_differences, is_match
+            return all_differences, is_match, test_differences
         else:
             # 多個測試的總體匹配情況
             is_all_match = problem_count == 0
             
-            # 添加概要信息
-            if test_ids_to_compare:
-                total_tests = len(test_ids_to_compare)
-                only_in_sample = sum(1 for tid in test_ids_to_compare if tid in sample_sections_dict and tid not in target_sections_dict)
-                only_in_target = sum(1 for tid in test_ids_to_compare if tid not in sample_sections_dict and tid in target_sections_dict)
-                common_tests = total_tests - only_in_sample - only_in_target
-                
-                summary = f"找到總共 {total_tests} 個測試段落："
-                if only_in_sample > 0:
-                    summary += f"{only_in_sample} 個僅在樣本檔案中，"
-                if only_in_target > 0:
-                    summary += f"{only_in_target} 個僅在目標檔案中，"
-                summary += f"{common_tests} 個共同測試段落中 {match_count} 個完全匹配，{common_tests - match_count} 個有差異"
-                
-                all_differences.insert(0, summary)
-            else:
-                all_differences.insert(0, "沒有找到可比對的測試段落")
-            
-            return all_differences, is_all_match
-
+            # 返回差異字典和概要
+            return all_differences, is_all_match, test_differences, summary
 
 # 初始化 session state
 if 'test_id_list' not in st.session_state:
@@ -475,30 +484,112 @@ if 'test_id_list' not in st.session_state:
 if 'test_id_comparison' not in st.session_state:
     st.session_state.test_id_comparison = None
 
-# 設置頁面標題和布局
+if 'confirmed_issues' not in st.session_state:
+    st.session_state.confirmed_issues = {}
+
+# 新增：存储比对结果
+if 'comparison_results' not in st.session_state:
+    st.session_state.comparison_results = None
+
+# 设置页面标题和布局
 st.set_page_config(
     page_title="HTML 比對工具",
     page_icon="🔍",
     layout="wide"
 )
 
-# 應用標題和描述
+# 添加简化版的CSS样式，移除颜色，保留层次结构和进度条
+st.markdown("""
+<style>
+    .diff-item {
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 5px;
+    border: 1px solid #555;  /* 改为只有边框，没有背景色和左侧粗边框 */
+}
+
+.html-content {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #555;  /* 改为只有边框 */
+    font-family: monospace;
+    white-space: pre-wrap;
+    overflow-x: auto;
+}
+
+.test-header {
+    font-weight: bold;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #555;  /* 改为只有边框，没有背景色 */
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+
+.test-content {
+    padding: 10px;
+    border-left: 1px solid #ddd;  /* 保留左侧边框线 */
+    margin-left: 10px;
+}
+
+.confirmed {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.summary-bar {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #555;  /* 改为只有边框，没有背景色 */
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.progress-container {
+    width: 100%;
+    border: 1px solid #ddd;  /* 进度条外框 */
+    border-radius: 5px;
+    margin-top: 10px;
+    height: 10px;
+}
+
+.progress-bar {
+    height: 10px;
+    background-color: #28a745;  /* 保留进度条的填充色 */
+    border-radius: 5px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# 确认差异函数
+def toggle_confirm_issue(test_id, index):
+    if test_id not in st.session_state.confirmed_issues:
+        st.session_state.confirmed_issues[test_id] = set()
+    
+    if index in st.session_state.confirmed_issues[test_id]:
+        st.session_state.confirmed_issues[test_id].remove(index)
+    else:
+        st.session_state.confirmed_issues[test_id].add(index)
+
+# 应用标题和描述
 st.title("HTML 比對工具")
 st.markdown("""
 這個工具可以幫助您比對兩個HTML檔案中特定測試段落的差異，根據您指定的規則進行比較。
 """)
 
-# 分成兩欄
+# 分成两栏
 col1, col2 = st.columns(2)
 
 with col1:
     st.header("上傳檔案")
     
-    # 文件上傳
+    # 文件上传
     sample_file = st.file_uploader("上傳樣本文件", type=["html"], key="sample")
     target_file = st.file_uploader("上傳目標文件", type=["html"], key="target")
     
-    # 比對模式
+    # 比对模式
     compare_mode = st.radio(
         "比對模式",
         ["比對單一測試", "比對所有測試"],
@@ -506,15 +597,15 @@ with col1:
         help="單一測試：只比對特定ID的測試段落；所有測試：比對所有找到的測試段落"
     )
     
-    # 只有在單一測試模式時，才顯示測試ID輸入框
+    # 只有在单一测试模式时，才显示测试ID输入框
     if compare_mode == "比對單一測試":
-        # 如果已經上傳了兩個文件，提取兩個文件中的測試ID
+        # 如果已经上传了两个文件，提取两个文件中的测试ID
         if sample_file and target_file and not st.session_state.test_id_comparison:
             with st.spinner("分析文件中的測試ID..."):
-                # 創建比對器
+                # 创建比对器
                 comparator = HTMLComparator()
                 
-                # 載入樣本檔案
+                # 加载样本文件
                 sample_soup = comparator.load_html(sample_file)
                 sample_ids = []
                 if not isinstance(sample_soup, str):
@@ -522,7 +613,7 @@ with col1:
                     sample_ids = [section['name'] for section in sample_sections]
                     sample_ids.sort()
                 
-                # 載入目標檔案
+                # 加载目标文件
                 target_soup = comparator.load_html(target_file)
                 target_ids = []
                 if not isinstance(target_soup, str):
@@ -530,7 +621,9 @@ with col1:
                     target_ids = [section['name'] for section in target_sections]
                     target_ids.sort()
                 
-                # 計算共同和獨有的測試ID
+                # 继续上一部分...
+
+                # 计算共同和独有的测试ID
                 common_ids = [id for id in target_ids if id in sample_ids]
                 only_in_target = [id for id in target_ids if id not in sample_ids]
                 only_in_sample = [id for id in sample_ids if id not in target_ids]
@@ -543,7 +636,7 @@ with col1:
                     'all_target': target_ids
                 }
         
-        # 如果有測試ID比較結果，顯示一個摘要
+        # 如果有测试ID比较结果，显示一个摘要
         if 'test_id_comparison' in st.session_state and st.session_state.test_id_comparison:
             with st.expander("測試ID比較摘要", expanded=False):
                 comp = st.session_state.test_id_comparison
@@ -555,7 +648,7 @@ with col1:
                     st.write(f"僅在樣本文件中: {len(comp['only_in_sample'])} 個")
                     st.write(", ".join(comp['only_in_sample'][:10]) + ("..." if len(comp['only_in_sample']) > 10 else ""))
         
-        # 從目標文件中的測試ID提供下拉列表
+        # 从目标文件中的测试ID提供下拉列表
         if 'test_id_comparison' in st.session_state and st.session_state.test_id_comparison:
             target_ids = st.session_state.test_id_comparison['all_target']
             if target_ids:
@@ -571,63 +664,126 @@ with col1:
     else:
         test_id = None
     
-    # 比對按鈕
-    compare_button = st.button("比對檔案")
-
-with col2:
-    st.header("比對結果")
-    
-    # 初始化比對結果顯示區域
-    result_container = st.container()
-
-# 執行比對
-if compare_button:
-    with result_container:
+    # 比对按钮
+    if st.button("比對檔案"):
+        # 执行比对并将结果存储在session state中
         if not sample_file or not target_file:
             st.error("請上傳樣本檔案和目標檔案")
         elif compare_mode == "比對單一測試" and not test_id:
             st.error("請選擇或輸入測試ID")
         else:
-            # 清空之前的結果
-            st.empty()
-            
-            # 創建比對器並執行比對
+            # 创建比对器并执行比对
             with st.spinner("比對中..."):
                 comparator = HTMLComparator()
                 specific_id = test_id if compare_mode == "比對單一測試" else None
-                differences, is_match = comparator.compare_html_files(
-                    sample_file, target_file, specific_id
-                )
-            
-            # 顯示結果
-            if is_match and len(differences) <= 1:  # 只有概要信息或沒有差異
+                
+                if specific_id:
+                    differences, is_match, test_differences = comparator.compare_html_files(
+                        sample_file, target_file, specific_id
+                    )
+                    summary = f"測試 {specific_id} " + ("完全匹配" if is_match else "有差異")
+                    st.session_state.comparison_results = {
+                        'mode': 'single',
+                        'differences': differences,
+                        'is_match': is_match,
+                        'test_differences': test_differences,
+                        'summary': summary
+                    }
+                else:
+                    differences, is_all_match, test_differences, summary = comparator.compare_html_files(
+                        sample_file, target_file
+                    )
+                    st.session_state.comparison_results = {
+                        'mode': 'all',
+                        'differences': differences,
+                        'is_all_match': is_all_match,
+                        'test_differences': test_differences,
+                        'summary': summary
+                    }
+
+# 结果显示区域
+with col2:
+    st.header("比對結果")
+    
+    # 如果有比对结果，显示它
+    if st.session_state.comparison_results:
+        results = st.session_state.comparison_results
+        
+        if results['mode'] == 'single':
+            # 单一测试模式结果
+            if results['is_match'] and len(results['differences']) <= 1:
                 st.success("比對結果：測試數據完全相同")
-                if differences and compare_mode == "比對所有測試":
-                    st.info(differences[0])  # 顯示概要信息
-            elif is_match and len(differences) > 1 and compare_mode == "比對單一測試":
-                # 對於單一測試，如果有信息但是是匹配的
-                st.success("比對結果：測試數據完全相同")
-                for diff in differences:
-                    st.write(diff)
             else:
                 st.error("比對結果：發現差異")
                 
-                # 顯示所有差異
-                if compare_mode == "比對所有測試" and differences:
-                    # 顯示概要信息
-                    st.info(differences[0])
+                # 显示单一测试的差异
+                for diff in results['differences']:
+                    st.markdown(f'<div class="diff-item">{diff}</div>', unsafe_allow_html=True)
+        else:
+            # 所有测试模式结果
+            if results['is_all_match']:
+                st.success("比對結果：所有測試數據完全相同")
+            else:
+                st.error("比對結果：發現差異")
+            
+            # 显示概要
+            st.info(results['summary'])
+            
+            # 计算确认进度
+            total_issues = sum(len(diffs) for diffs in results['test_differences'].values())
+            confirmed_count = sum(len(issues) for issues in st.session_state.confirmed_issues.values())
+            progress_pct = 0 if total_issues == 0 else int(confirmed_count / total_issues * 100)
+            
+            # 显示进度条
+            st.markdown(f"""
+            <div class="summary-bar">
+                <span>已確認: {confirmed_count} / {total_issues} ({progress_pct}%)</span>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width:{progress_pct}%"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # 为每个测试显示差异，但不使用折叠效果
+            for test_id, diffs in results['test_differences'].items():
+                if not diffs:
+                    continue
+                
+                # 计算这个测试中已确认的问题数量
+                confirmed_in_test = len(st.session_state.confirmed_issues.get(test_id, set()))
+                total_in_test = len(diffs)
+                
+                # 测试标题
+                st.markdown(f'<div class="test-header">測試 {test_id} ({confirmed_in_test}/{total_in_test})</div>', unsafe_allow_html=True)
+                
+                # 显示该测试的所有差异
+                for i, diff in enumerate(diffs):
+                    # 检查是否已确认
+                    is_confirmed = i in st.session_state.confirmed_issues.get(test_id, set())
+                    confirm_key = f"{test_id}_{i}"
                     
-                    # 創建一個擴展區以顯示詳細差異
-                    with st.expander("查看詳細差異", expanded=True):
-                        for i, diff in enumerate(differences):
-                            if i > 0:  # 跳過概要信息
-                                st.markdown(diff)
-                else:
-                    # 單一測試模式或沒有概要信息
-                    for diff in differences:
-                        st.markdown(diff)
+                    # 添加确认框和差异内容
+                    col_check, col_content = st.columns([1, 11])
+                    with col_check:
+                        # 为复选框添加不可见的标签以避免警告
+                        st.checkbox("确认", value=is_confirmed, key=confirm_key, on_change=toggle_confirm_issue, args=(test_id, i), label_visibility="collapsed")
+                    
+                    with col_content:
+                        if "```html" in diff:
+                            # HTML内容
+                            html_content = diff.replace("```html", "").replace("```", "")
+                            if is_confirmed:
+                                st.markdown(f'<div class="html-content confirmed">{html_content}</div>', unsafe_allow_html=True)
+                            else:
+                                st.markdown(f'<div class="html-content">{html_content}</div>', unsafe_allow_html=True)
+                        else:
+                            # 普通差异
+                            if is_confirmed:
+                                st.markdown(f'<div class="diff-item confirmed">{diff}</div>', unsafe_allow_html=True)
+                            else:
+                                st.markdown(f'<div class="diff-item">{diff}</div>', unsafe_allow_html=True)
 
-# 添加使用說明
+# 添加使用说明
 st.markdown("""
 ---
 ### 使用說明
@@ -638,6 +794,9 @@ st.markdown("""
    - **比對單一測試**: 選擇或輸入測試ID，只比對該特定測試段落
    - **比對所有測試**: 比對兩個檔案中所有共同的測試段落
 4. 點擊「比對檔案」按鈕開始比對
+5. 在比對結果中，您可以:
+   - 勾選差異左側的方框表示已確認
+   - 已確認的差異會顯示刪除線
 
 ### 比對規則
 
@@ -650,4 +809,4 @@ st.markdown("""
 5. 只有核心屬性一致時，才進一步比對 subtitle 部分
 6. 檢查主測試結果是否為 `Pass`，如果目標文件不是 `Pass` 會特別標註
 7. 檢查每個迭代中的所有子測試項目的描述和結果是否一致，並特別標註非 `Pass` 的項目
-""")
+""", unsafe_allow_html=True)
