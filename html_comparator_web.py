@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import io
 import json
 import pyperclip
+import streamlit.components.v1 as components
 
 class HTMLComparator:
     def __init__(self):
@@ -478,7 +479,7 @@ class HTMLComparator:
             # 返回差異字典和概要
             return all_differences, is_all_match, test_differences, summary
 
-# 初始化 session state
+# 初始化 session state (保持您現有的代碼)
 if 'test_id_list' not in st.session_state:
     st.session_state.test_id_list = []
 
@@ -488,83 +489,118 @@ if 'test_id_comparison' not in st.session_state:
 if 'confirmed_issues' not in st.session_state:
     st.session_state.confirmed_issues = {}
 
-# 新增：存储比对结果
+# 儲存比對結果
 if 'comparison_results' not in st.session_state:
     st.session_state.comparison_results = None
 
-# 设置页面标题和布局
+# 設置頁面配置
 st.set_page_config(
     page_title="HTML 比對工具",
     page_icon="🔍",
     layout="wide"
 )
 
-# 添加简化版的CSS样式，移除颜色，保留层次结构和进度条
+# Google AdSense 整合 - 使用 streamlit.components.v1 來實現
+def display_adsense_ad(ad_slot="1234567890", ad_format="auto"):
+    # 建立 AdSense 廣告代碼
+    ad_code = f"""
+    <div style="margin: 20px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; text-align: center;">
+        <div style="font-size: 12px; color: #888; margin-bottom: 5px;">廣告</div>
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID"
+            crossorigin="anonymous"></script>
+        <ins class="adsbygoogle"
+            style="display:block"
+            data-ad-client="ca-pub-8522601765370947"
+            data-ad-slot="{ad_slot}"
+            data-ad-format="{ad_format}"
+            data-full-width-responsive="true"></ins>
+        <script>
+            (adsbygoogle = window.adsbygoogle || []).push({{}});
+        </script>
+    </div>
+    """
+    # 使用 components.html 來渲染 AdSense 代碼
+    components.html(ad_code, height=150)
+
+# 在頁首添加 AdSense 驗證代碼
+def add_adsense_verification():
+    verification_code = """
+    <head>
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID"
+            crossorigin="anonymous"></script>
+    </head>
+    """
+    st.markdown(verification_code, unsafe_allow_html=True)
+
+# 添加 Google AdSense 驗證代碼
+add_adsense_verification()
+
+# 添加您現有的 CSS 樣式
 st.markdown("""
 <style>
     .diff-item {
-    padding: 10px;
-    margin: 8px 0;
-    border-radius: 5px;
-    border: 1px solid #555;  /* 改为只有边框，没有背景色和左侧粗边框 */
-}
+        padding: 10px;
+        margin: 8px 0;
+        border-radius: 5px;
+        border: 1px solid #555;
+    }
 
-.html-content {
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #555;  /* 改为只有边框 */
-    font-family: monospace;
-    white-space: pre-wrap;
-    overflow-x: auto;
-}
+    .html-content {
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #555;
+        font-family: monospace;
+        white-space: pre-wrap;
+        overflow-x: auto;
+    }
 
-.test-header {
-    font-weight: bold;
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #555;  /* 改为只有边框，没有背景色 */
-    margin-top: 10px;
-    margin-bottom: 5px;
-}
+    .test-header {
+        font-weight: bold;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #555;
+        margin-top: 10px;
+        margin-bottom: 5px;
+    }
 
-.test-content {
-    padding: 10px;
-    border-left: 1px solid #ddd;  /* 保留左侧边框线 */
-    margin-left: 10px;
-}
+    .test-content {
+        padding: 10px;
+        border-left: 1px solid #ddd;
+        margin-left: 10px;
+    }
 
-.confirmed {
-    text-decoration: line-through;
-    opacity: 0.6;
-}
+    .confirmed {
+        text-decoration: line-through;
+        opacity: 0.6;
+    }
 
-.summary-bar {
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #555;  /* 改为只有边框，没有背景色 */
-    margin-bottom: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
+    .summary-bar {
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #555;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
 
-.progress-container {
-    width: 100%;
-    border: 1px solid #ddd;  /* 进度条外框 */
-    border-radius: 5px;
-    margin-top: 10px;
-    height: 10px;
-}
+    .progress-container {
+        width: 100%;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        margin-top: 10px;
+        height: 10px;
+    }
 
-.progress-bar {
-    height: 10px;
-    background-color: #28a745;  /* 保留进度条的填充色 */
-    border-radius: 5px;
-}
+    .progress-bar {
+        height: 10px;
+        background-color: #28a745;
+        border-radius: 5px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 确认差异函数
+# 保持現有功能
 def toggle_confirm_issue(test_id, index):
     if test_id not in st.session_state.confirmed_issues:
         st.session_state.confirmed_issues[test_id] = set()
@@ -578,31 +614,32 @@ def copy_to_clipboard(test_id):
     try:
         pyperclip.copy(test_id)
         st.session_state.last_copied = test_id
-        # 设置一个标志来显示复制成功消息
         st.session_state[f"copied_{test_id}"] = True
         return True
     except Exception as e:
         st.error(f"複製失敗: {str(e)}")
         return False
 
-
-# 应用标题和描述
+# 應用標題和描述
 st.title("HTML 比對工具")
 st.markdown("""
 這個工具可以幫助您比對兩個HTML檔案中特定測試段落的差異，根據您指定的規則進行比較。
 """)
 
-# 分成两栏
+# 在描述後顯示頂部廣告
+display_adsense_ad(ad_slot="6911640660")
+
+# 分成兩欄
 col1, col2 = st.columns(2)
 
 with col1:
     st.header("上傳檔案")
     
-    # 文件上传
+    # 文件上傳
     sample_file = st.file_uploader("上傳樣本文件", type=["html"], key="sample")
-    target_file = st.file_uploader("上傳目標文件", type=["html"], key="target")
+    target_file = st.file_uploader("上傳目標文件", type=["html"], key="target")    
     
-    # 比对模式
+    # 比對模式
     compare_mode = st.radio(
         "比對模式",
         ["比對單一測試", "比對所有測試"],
@@ -610,15 +647,15 @@ with col1:
         help="單一測試：只比對特定ID的測試段落；所有測試：比對所有找到的測試段落"
     )
     
-    # 只有在单一测试模式时，才显示测试ID输入框
+    # 測試 ID 選擇
     if compare_mode == "比對單一測試":
-        # 如果已经上传了两个文件，提取两个文件中的测试ID
+        # 如果兩個文件都已上傳，提取測試 ID
         if sample_file and target_file and not st.session_state.test_id_comparison:
             with st.spinner("分析文件中的測試ID..."):
-                # 创建比对器
+                # 創建比對器
                 comparator = HTMLComparator()
                 
-                # 加载样本文件
+                # 載入樣本文件
                 sample_soup = comparator.load_html(sample_file)
                 sample_ids = []
                 if not isinstance(sample_soup, str):
@@ -626,7 +663,7 @@ with col1:
                     sample_ids = [section['name'] for section in sample_sections]
                     sample_ids.sort()
                 
-                # 加载目标文件
+                # 載入目標文件
                 target_soup = comparator.load_html(target_file)
                 target_ids = []
                 if not isinstance(target_soup, str):
@@ -634,14 +671,12 @@ with col1:
                     target_ids = [section['name'] for section in target_sections]
                     target_ids.sort()
                 
-                # 继续上一部分...
-
-                # 计算共同和独有的测试ID
+                # 計算共同和獨有的測試 ID
                 common_ids = [id for id in target_ids if id in sample_ids]
                 only_in_target = [id for id in target_ids if id not in sample_ids]
                 only_in_sample = [id for id in sample_ids if id not in target_ids]
                 
-                # 更新session state
+                # 更新 session state
                 st.session_state.test_id_comparison = {
                     'common': common_ids,
                     'only_in_target': only_in_target,
@@ -649,7 +684,7 @@ with col1:
                     'all_target': target_ids
                 }
         
-        # 如果有测试ID比较结果，显示一个摘要
+        # 顯示測試 ID 比較摘要
         if 'test_id_comparison' in st.session_state and st.session_state.test_id_comparison:
             with st.expander("測試ID比較摘要", expanded=False):
                 comp = st.session_state.test_id_comparison
@@ -661,7 +696,7 @@ with col1:
                     st.write(f"僅在樣本文件中: {len(comp['only_in_sample'])} 個")
                     st.write(", ".join(comp['only_in_sample'][:10]) + ("..." if len(comp['only_in_sample']) > 10 else ""))
         
-        # 从目标文件中的测试ID提供下拉列表
+        # 測試 ID 下拉列表或輸入框
         if 'test_id_comparison' in st.session_state and st.session_state.test_id_comparison:
             target_ids = st.session_state.test_id_comparison['all_target']
             if target_ids:
@@ -677,15 +712,14 @@ with col1:
     else:
         test_id = None
     
-    # 比对按钮
+    # 比對按鈕
     if st.button("比對檔案"):
-        # 执行比对并将结果存储在session state中
         if not sample_file or not target_file:
             st.error("請上傳樣本檔案和目標檔案")
         elif compare_mode == "比對單一測試" and not test_id:
             st.error("請選擇或輸入測試ID")
         else:
-            # 创建比对器并执行比对
+            # 創建比對器並執行比對
             with st.spinner("比對中..."):
                 comparator = HTMLComparator()
                 specific_id = test_id if compare_mode == "比對單一測試" else None
@@ -714,40 +748,44 @@ with col1:
                         'summary': summary
                     }
 
-# 结果显示区域
+
+# 結果顯示區域
 with col2:
     st.header("比對結果")
     
-    # 如果有比对结果，显示它
+    # 如果存在比對結果，顯示它們
     if st.session_state.comparison_results:
         results = st.session_state.comparison_results
         
         if results['mode'] == 'single':
-            # 单一测试模式结果
+            # 單一測試模式結果
             if results['is_match'] and len(results['differences']) <= 1:
                 st.success("比對結果：測試數據完全相同")
             else:
                 st.error("比對結果：發現差異")
                 
-                # 显示单一测试的差异
+                # 在顯示差異之前顯示廣告
+                display_adsense_ad(ad_slot="6911640660")
+                
+                # 顯示單一測試的差異
                 for diff in results['differences']:
                     st.markdown(f'<div class="diff-item">{diff}</div>', unsafe_allow_html=True)
         else:
-            # 所有测试模式结果
+            # 所有測試模式結果
             if results['is_all_match']:
                 st.success("比對結果：所有測試數據完全相同")
             else:
                 st.error("比對結果：發現差異")
             
-            # 显示概要
+            # 顯示摘要
             st.info(results['summary'])
             
-            # 计算确认进度
+            # 計算確認進度
             total_issues = sum(len(diffs) for diffs in results['test_differences'].values())
             confirmed_count = sum(len(issues) for issues in st.session_state.confirmed_issues.values())
             progress_pct = 0 if total_issues == 0 else int(confirmed_count / total_issues * 100)
             
-            # 显示进度条
+            # 顯示進度條
             st.markdown(f"""
             <div class="summary-bar">
                 <span>已確認: {confirmed_count} / {total_issues} ({progress_pct}%)</span>
@@ -757,54 +795,65 @@ with col2:
             </div>
             """, unsafe_allow_html=True)
             
-            # 为每个测试显示差异，但不使用折叠效果
+            # 在摘要後顯示廣告
+            display_adsense_ad(ad_slot="6911640660")
+            
+            # 顯示特定測試問題
+            test_count = 0
             for test_id, diffs in results['test_differences'].items():
                 if not diffs:
                     continue
                 
-                # 计算这个测试中已确认的问题数量
+                test_count += 1
+                # 每 3 個測試後顯示一個廣告
+                if test_count % 5 == 0:
+                    display_adsense_ad(ad_slot="6911640660")
+                
+                # 計算此測試已確認的問題
                 confirmed_in_test = len(st.session_state.confirmed_issues.get(test_id, set()))
                 total_in_test = len(diffs)
                 
-                # 创建行布局，左侧为测试标题，右侧为复制按钮
+                # 創建行佈局，帶有標題和複製按鈕
                 col_title, col_copy = st.columns([9, 1])
                 
                 with col_title:
                     st.markdown(f"### 測試 {test_id} ({confirmed_in_test}/{total_in_test})")
                 
                 with col_copy:
-                    # 添加复制按钮
+                    # 添加複製按鈕
                     if st.button("複製ID", key=f"copy_btn_{test_id}"):
                         copy_to_clipboard(test_id)                                
                 
-                # 显示该测试的所有差异
+                # 顯示此測試的所有差異
                 for i, diff in enumerate(diffs):
-                    # 检查是否已确认
+                    # 檢查是否已確認
                     is_confirmed = i in st.session_state.confirmed_issues.get(test_id, set())
                     confirm_key = f"{test_id}_{i}"
                     
-                    # 添加确认框和差异内容
+                    # 添加複選框和差異內容
                     col_check, col_content = st.columns([1, 11])
                     with col_check:
-                        # 为复选框添加不可见的标签以避免警告
                         st.checkbox("确认", value=is_confirmed, key=confirm_key, on_change=toggle_confirm_issue, args=(test_id, i), label_visibility="collapsed")
                     
                     with col_content:
                         if "```html" in diff:
-                            # HTML内容
+                            # HTML 內容
                             html_content = diff.replace("```html", "").replace("```", "")
                             if is_confirmed:
                                 st.markdown(f'<div class="html-content confirmed">{html_content}</div>', unsafe_allow_html=True)
                             else:
                                 st.markdown(f'<div class="html-content">{html_content}</div>', unsafe_allow_html=True)
                         else:
-                            # 普通差异
+                            # 普通差異
                             if is_confirmed:
                                 st.markdown(f'<div class="diff-item confirmed">{diff}</div>', unsafe_allow_html=True)
                             else:
                                 st.markdown(f'<div class="diff-item">{diff}</div>', unsafe_allow_html=True)
 
-# 添加使用说明
+# 頁腳廣告
+display_adsense_ad(ad_slot="6911640660")
+
+# 使用說明
 st.markdown("""
 ---
 ### 使用說明
@@ -831,3 +880,6 @@ st.markdown("""
 6. 檢查主測試結果是否為 `Pass`，如果目標文件不是 `Pass` 會特別標註
 7. 檢查每個迭代中的所有子測試項目的描述和結果是否一致，並特別標註非 `Pass` 的項目
 """, unsafe_allow_html=True)
+
+# 頁面底部的最後一個廣告
+display_adsense_ad(ad_slot="8901234567")
