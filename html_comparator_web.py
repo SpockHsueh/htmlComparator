@@ -539,8 +539,8 @@ def display_adsense_ad(ad_slot="1234567890", ad_format="auto"):
     ad_code = f"""
     <div style="margin: 20px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; text-align: center;">
         <div style="font-size: 12px; color: #888; margin-bottom: 5px;">廣告</div>
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID"
-            crossorigin="anonymous"></script>
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8522601765370947"
+     crossorigin="anonymous"></script>
         <ins class="adsbygoogle"
             style="display:block"
             data-ad-client="ca-pub-8522601765370947"
@@ -559,8 +559,8 @@ def display_adsense_ad(ad_slot="1234567890", ad_format="auto"):
 def add_adsense_verification():
     verification_code = """
     <head>
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID"
-            crossorigin="anonymous"></script>
+        Golden 文件https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8522601765370947"
+     crossorigin="anonymous"></script>
     </head>
     """
     st.markdown(verification_code, unsafe_allow_html=True)
