@@ -553,17 +553,20 @@ def display_adsense_ad(ad_slot="1234567890", ad_format="auto"):
     </div>
     """
     # 使用 components.html 來渲染 AdSense 代碼
-    components.html(ad_code, height=150)
+    components.html(ad_code, height=250)
 
 # 在頁首添加 AdSense 驗證代碼
-def add_adsense_meta_verification():
-    meta_tag = """
+def add_adsense_verification():
+    # 同時包含中繼標記和JavaScript驗證代碼
+    verification_code = """
     <meta name="google-adsense-account" content="ca-pub-8522601765370947">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8522601765370947" crossorigin="anonymous"></script>
     """
-    components.html(meta_tag, height=0)
+    # 注意：height設為1而非0，這可能是關鍵
+    components.html(verification_code, height=1)
 
 # 添加 Google AdSense 驗證代碼
-add_adsense_meta_verification()
+add_adsense_verification()
 
 # 添加您現有的 CSS 樣式
 st.markdown("""
