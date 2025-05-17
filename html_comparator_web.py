@@ -558,12 +558,11 @@ def display_adsense_ad(ad_slot="1234567890", ad_format="auto"):
 # 在頁首添加 AdSense 驗證代碼
 def add_adsense_verification():
     verification_code = """
-    <head>
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8522601765370947"
-            crossorigin="anonymous"></script>
-    </head>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8522601765370947"
+        crossorigin="anonymous"></script>
+    <meta name="google-adsense-account" content="ca-pub-8522601765370947">
     """
-    st.markdown(verification_code, unsafe_allow_html=True)
+    components.html(verification_code, height=0)
 
 # 添加 Google AdSense 驗證代碼
 add_adsense_verification()
