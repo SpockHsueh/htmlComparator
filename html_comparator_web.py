@@ -556,16 +556,14 @@ def display_adsense_ad(ad_slot="1234567890", ad_format="auto"):
     components.html(ad_code, height=150)
 
 # 在頁首添加 AdSense 驗證代碼
-def add_adsense_verification():
-    verification_code = """
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8522601765370947"
-        crossorigin="anonymous"></script>
+def add_adsense_meta_verification():
+    meta_tag = """
     <meta name="google-adsense-account" content="ca-pub-8522601765370947">
     """
-    components.html(verification_code, height=0)
+    components.html(meta_tag, height=0)
 
 # 添加 Google AdSense 驗證代碼
-add_adsense_verification()
+add_adsense_meta_verification()
 
 # 添加您現有的 CSS 樣式
 st.markdown("""
